@@ -10,7 +10,7 @@ namespace HomePlanner.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    // [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin")]
     public class UsersController : ControllerBase
     {
         private readonly IUserRepository _userRepository;
@@ -49,54 +49,54 @@ namespace HomePlanner.Controllers
             return Ok(itemDto);
         }
 
-        // [AllowAnonymous]
-        // [HttpPost("Register", Name = "RegisterUser")]
-        // [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        // [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        // [ProducesResponseType(typeof(UserDto), StatusCodes.Status201Created)]
-        // [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        // public async Task<IActionResult> RegisterUser([FromBody] CreateUserDto createUserDto)
-        // {
-        //     if (createUserDto == null || !ModelState.IsValid)
-        //     {
-        //         return BadRequest(ModelState);
-        //     }
-        //     if (string.IsNullOrWhiteSpace(createUserDto.Username))
-        //     {
-        //         return BadRequest("Username is required");
+        [AllowAnonymous]
+        [HttpPost("Register", Name = "RegisterUser")]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(UserDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> RegisterUser([FromBody] CreateUserDto createUserDto)
+        {
+            if (createUserDto == null || !ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            if (string.IsNullOrWhiteSpace(createUserDto.Email))
+            {
+                return BadRequest("Email is required");
 
-        //     }
-        //     if (_userRepository.UserExistsByUserName(createUserDto.Username))
-        //     {
-        //         ModelState.AddModelError(Constants.Constants.CustomErrorKey, $"User {createUserDto.Username} already exists.");
-        //         return BadRequest(ModelState);
-        //     }
-        //     var result = await _userRepository.Register(createUserDto);
-        //     if (result == null)
-        //     {
-        //         return StatusCode(StatusCodes.Status500InternalServerError, "Error registering user");
-        //     }
-        //     return CreatedAtRoute("GetUserById", new { id = result.Id }, createUserDto);
-        // }
+            }
+            if (_userRepository.UserExistsByEmail(createUserDto.Email))
+            {
+                ModelState.AddModelError(Constants.CustomErrorKey, $"User {createUserDto.Email} already exists.");
+                return BadRequest(ModelState);
+            }
+            var result = await _userRepository.Register(createUserDto);
+            if (result == null)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error registering user");
+            }
+            return CreatedAtRoute("GetUserById", new { id = result.Id }, createUserDto);
+        }
 
-        // [AllowAnonymous]
-        // [HttpPost("Login", Name = "LoginUser")]
-        // [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        // [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        // [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
-        // [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        // public async Task<IActionResult> LoginUser([FromBody] UserLoginDto userLoginDto)
-        // {
-        //     if (userLoginDto == null || !ModelState.IsValid)
-        //     {
-        //         return BadRequest(ModelState);
-        //     }
-        //     var user = await _userRepository.Login(userLoginDto);
-        //     if (user == null)
-        //     {
-        //         return Unauthorized();
-        //     }
-        //     return Ok(user);
-        // }
+        [AllowAnonymous]
+        [HttpPost("Login", Name = "LoginUser")]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> LoginUser([FromBody] UserLoginDto userLoginDto)
+        {
+            if (userLoginDto == null || !ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var user = await _userRepository.Login(userLoginDto);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+            return Ok(user);
+        }
     }
 }
