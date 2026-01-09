@@ -1,0 +1,19 @@
+services:                       #* List of services (containers) to be started
+  sql:                          #* Service name, here we create one called "sql"
+    image: mcr.microsoft.com/mssql/server:2022-latest   #* Official SQL Server 2022 image (latest version)
+    container_name: sqlserver2022-homeplanner                      #* Fixed container name for easy identification
+    ports:                      #* Maps container ports to your machine
+      - "1433:1433"             #* Exposes port 1433 (SQL Server) from your PC to container port 1433
+    environment:                #* Environment variables to configure SQL Server
+      ACCEPT_EULA: "1"          #* Automatically accepts SQL Server license (required)
+      MSSQL_SA_PASSWORD: "MyStrongPass123"  #* Password for 'sa' user (SQL Server admin)
+      MSSQL_PID: "Developer"   #* Uses Developer edition (free for development and testing)
+    volumes:                    #* Volumes mounted in this container
+      - sqlserverdata:/var/opt/mssql  #* Stores SQL Server data in a persistent volume
+volumes:                        #* Declaration of volumes to be used
+  sqlserverdata:                #* Creates a volume called "sqlserverdata" to persist data
+#* Useful commands:
+#* Start containers in the background:
+#   docker-compose up -d        #* Starts containers in the background
+#* Stop and remove containers (does not delete volumes):
+#   docker-compose down         #* Stops and removes containers, but keeps data saved in the volume
