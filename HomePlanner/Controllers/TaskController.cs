@@ -14,7 +14,7 @@ namespace HomePlanner.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    // TODO: [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin")]
     public class TaskController : ControllerBase
     {
         private readonly ITaskRepository _taskRepository;
@@ -67,6 +67,7 @@ namespace HomePlanner.Controllers
             return Ok(response);
         }
 
+        [AllowAnonymous]
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -79,11 +80,20 @@ namespace HomePlanner.Controllers
             {
                 return BadRequest(ModelState);
             }
-            // TODO: if (!_userRepository.UserExistsById(createTaskDto.UserId))
-            // {
-            //     ModelState.AddModelError(Constants.Constants.CustomErrorKey, $"Category {createTaskDto.CategoryId} doesn't exists.");
-            //     return BadRequest(ModelState);
-            // }
+
+            var createdById = _userRepository.GetUserById(createTaskDto.CreatedById);
+            if (createdById == null)
+            {
+                ModelState.AddModelError(Constants.CustomErrorKey, $"User {createTaskDto.CreatedById} doesn't exists.");
+                return BadRequest(ModelState);
+            }
+
+            var assignedToId = _userRepository.GetUserById(createTaskDto.AssignedToId);
+            if (assignedToId == null)
+            {
+                ModelState.AddModelError(Constants.CustomErrorKey, $"User {createTaskDto.AssignedToId} doesn't exists.");
+                return BadRequest(ModelState);
+            }
 
             var task = _mapper.Map<Task>(createTaskDto);
 
