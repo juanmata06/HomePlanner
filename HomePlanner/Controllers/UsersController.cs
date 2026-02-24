@@ -24,11 +24,11 @@ namespace HomePlanner.Controllers
 
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(typeof(List<UserDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(List<UserGetDto>), StatusCodes.Status200OK)]
         public IActionResult GetUsers()
         {
             var items = _userRepository.GetUsers();
-            var itemsDto = _mapper.Map<List<UserDto>>(items);
+            var itemsDto = _mapper.Map<List<UserGetDto>>(items);
             return Ok(itemsDto);
         }
 
@@ -37,7 +37,7 @@ namespace HomePlanner.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(UserGetDto), StatusCodes.Status200OK)]
         public IActionResult GetUserById(string id)
         {
             var item = _userRepository.GetUserById(id);
@@ -45,7 +45,7 @@ namespace HomePlanner.Controllers
             {
                 return NotFound($"No user {id} found");
             }
-            var itemDto = _mapper.Map<UserDto>(item);
+            var itemDto = _mapper.Map<UserGetDto>(item);
             return Ok(itemDto);
         }
 
@@ -53,7 +53,7 @@ namespace HomePlanner.Controllers
         [HttpPost("Register", Name = "RegisterUser")]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(UserDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(UserRegisterResponseDto), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> RegisterUser([FromBody] CreateUserDto createUserDto)
         {
@@ -71,12 +71,21 @@ namespace HomePlanner.Controllers
                 ModelState.AddModelError(Constants.CustomErrorKey, $"User {createUserDto.Email} already exists.");
                 return BadRequest(ModelState);
             }
-            var result = await _userRepository.Register(createUserDto);
-            if (result == null)
+            var (user, errors) = await _userRepository.Register(createUserDto);
+            if (errors != null && errors.Count > 0)
+            {
+                foreach (var error in errors)
+                {
+                    ModelState.AddModelError(Constants.CustomErrorKey, error);
+                }
+                return BadRequest(ModelState);
+            }
+            if (user == null)
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, "Error registering user");
             }
-            return CreatedAtRoute("GetUserById", new { id = result.Id }, createUserDto);
+            var userDto = _mapper.Map<UserRegisterResponseDto>(user);
+            return CreatedAtRoute("GetUserById", new { id = user.Id }, userDto);
         }
 
         [AllowAnonymous]
@@ -97,6 +106,74 @@ namespace HomePlanner.Controllers
                 return Unauthorized();
             }
             return Ok(user);
+        }
+
+        // TODO: use UserGetDto for this endpoint
+        [HttpPut("{id}", Name = "UpdateUser")]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> UpdateUser(string id, [FromBody] CreateUserDto updateUserDto)
+        {
+            if (updateUserDto == null || string.IsNullOrWhiteSpace(id))
+            {
+                return BadRequest("User ID and data are required");
+            }
+
+            var user = _userRepository.GetUserById(id);
+            if (user == null)
+            {
+                return NotFound($"User {id} not found");
+            }
+
+            _mapper.Map(updateUserDto, user);
+            
+            if (!_userRepository.UpdateUser(user))
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error updating user");
+            }
+
+            if (!await _userRepository.SaveAsync())
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error saving changes");
+            }
+
+            var userDto = _mapper.Map<UserDto>(user);
+            return Ok(userDto);
+        }
+
+        [HttpDelete("{id}", Name = "DeleteUser")]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> DeleteUser(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return BadRequest("User ID is required");
+            }
+
+            var user = _userRepository.GetUserById(id);
+            if (user == null)
+            {
+                return NotFound($"User {id} not found");
+            }
+
+            if (!_userRepository.DeleteUser(user))
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error deleting user");
+            }
+
+            if (!await _userRepository.SaveAsync())
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error saving changes");
+            }
+
+            return NoContent();
         }
     }
 }

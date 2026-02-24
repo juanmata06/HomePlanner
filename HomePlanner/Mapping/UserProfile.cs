@@ -4,11 +4,11 @@ public class UserProfile : Profile
 {
     public UserProfile()
     {
-        CreateMap<User, UserDto>().ReverseMap();
-        CreateMap<User, CreateUserDto>().ReverseMap();
-        CreateMap<User, UserLoginDto>().ReverseMap();
-        CreateMap<User, UserLoginResponseDto>().ReverseMap();
         CreateMap<ApplicationUser, UserDataDto>().ReverseMap();
         CreateMap<ApplicationUser, UserDto>().ReverseMap();
+        CreateMap<ApplicationUser, UserGetDto>();
+        CreateMap<ApplicationUser, UserRegisterResponseDto>();
+        CreateMap<UserDataDto, UserRegisterResponseDto>();
+        CreateMap<CreateUserDto, ApplicationUser>();
     }
 }

@@ -104,7 +104,9 @@ builder.Services.AddAuthentication(opts =>
     ValidAudience = Audience,
     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
     ValidateIssuer = false,
-    ValidateAudience = true
+    ValidateAudience = true,
+    ValidateLifetime = true,
+    ClockSkew = TimeSpan.Zero
   };
 });
 

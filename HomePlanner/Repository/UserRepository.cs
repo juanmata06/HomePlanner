@@ -50,7 +50,7 @@ public class UserRepository : IUserRepository
 
     public bool UserExistsByEmail(string email)
     {
-        return _db.Users.Any(u => u.Email.ToLower().Trim() == email.ToLower().Trim());
+        return _db.ApplicationUsers.Any(u => u.Email != null && u.Email.ToLower().Trim() == email.ToLower().Trim());
     }
 
     public async Task<UserLoginResponseDto> Login(UserLoginDto userLoginDto)
@@ -113,17 +113,16 @@ public class UserRepository : IUserRepository
         };
     }
 
-    // TODO: add error message for bad password
-    public async Task<UserDataDto> Register(CreateUserDto createUserDto)
+    public async Task<(UserDataDto? User, List<string>? Errors)> Register(CreateUserDto createUserDto)
     {
         if (string.IsNullOrEmpty(createUserDto.Email))
         {
-            throw new InvalidOperationException("Username is required");
+            return (null, new List<string> { "Email is required" });
         }
 
         if (createUserDto.Password == null)
         {
-            throw new InvalidOperationException("Password is required");
+            return (null, new List<string> { "Password is required" });
         }
 
         var user = new ApplicationUser()
@@ -148,10 +147,37 @@ public class UserRepository : IUserRepository
             var createdUser = await _db.ApplicationUsers.FirstOrDefaultAsync(u => u.Email == createUserDto.Email);
             var userDataDto = _mapper.Map<UserDataDto>(createdUser);
             userDataDto.Role = userRole;
-            return userDataDto;
+            return (userDataDto, null);
         }
 
-        throw new InvalidOperationException("An error has occurred during user registration");
+        var errors = result.Errors.Select(e => e.Description).ToList();
+        return (null, errors);
+    }
+
+    public bool UpdateUser(ApplicationUser user)
+    {
+        try
+        {
+            _db.ApplicationUsers.Update(user);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public bool DeleteUser(ApplicationUser user)
+    {
+        try
+        {
+            _db.ApplicationUsers.Remove(user);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public async Task<bool> SaveAsync()
