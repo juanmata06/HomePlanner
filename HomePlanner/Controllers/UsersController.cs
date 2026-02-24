@@ -49,65 +49,6 @@ namespace HomePlanner.Controllers
             return Ok(itemDto);
         }
 
-        [AllowAnonymous]
-        [HttpPost("Register", Name = "RegisterUser")]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(UserRegisterResponseDto), StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> RegisterUser([FromBody] CreateUserDto createUserDto)
-        {
-            if (createUserDto == null || !ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-            if (string.IsNullOrWhiteSpace(createUserDto.Email))
-            {
-                return BadRequest("Email is required");
-
-            }
-            if (_userRepository.UserExistsByEmail(createUserDto.Email))
-            {
-                ModelState.AddModelError(Constants.CustomErrorKey, $"User {createUserDto.Email} already exists.");
-                return BadRequest(ModelState);
-            }
-            var (user, errors) = await _userRepository.Register(createUserDto);
-            if (errors != null && errors.Count > 0)
-            {
-                foreach (var error in errors)
-                {
-                    ModelState.AddModelError(Constants.CustomErrorKey, error);
-                }
-                return BadRequest(ModelState);
-            }
-            if (user == null)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError, "Error registering user");
-            }
-            var userDto = _mapper.Map<UserRegisterResponseDto>(user);
-            return CreatedAtRoute("GetUserById", new { id = user.Id }, userDto);
-        }
-
-        [AllowAnonymous]
-        [HttpPost("Login", Name = "LoginUser")]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> LoginUser([FromBody] UserLoginDto userLoginDto)
-        {
-            if (userLoginDto == null || !ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-            var user = await _userRepository.Login(userLoginDto);
-            if (user == null)
-            {
-                return Unauthorized();
-            }
-            return Ok(user);
-        }
-
         // TODO: use UserGetDto for this endpoint
         [HttpPut("{id}", Name = "UpdateUser")]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]

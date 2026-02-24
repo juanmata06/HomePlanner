@@ -79,6 +79,21 @@ public class UserRepository : IUserRepository
             throw new InvalidOperationException("Credentials are not correct");
         }
 
+        var token = await GenerateTokenAsync(user);
+        var userDataDto = _mapper.Map<UserDataDto>(user);
+        var roles = await _userManager.GetRolesAsync(user);
+        userDataDto.Role = roles.FirstOrDefault();
+
+        return new UserLoginResponseDto()
+        {
+            Token = token,
+            User = userDataDto,
+            Message = "User logged succesfully!"
+        };
+    }
+
+    public async Task<string> GenerateTokenAsync(ApplicationUser user)
+    {
         var handlerToken = new JwtSecurityTokenHandler();
         if (string.IsNullOrWhiteSpace(secretKey))
         {
@@ -101,16 +116,7 @@ public class UserRepository : IUserRepository
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
         var token = handlerToken.CreateToken(tokenDescriptor);
-
-        var userDataDto = _mapper.Map<UserDataDto>(user);
-        userDataDto.Role = roles.FirstOrDefault();
-
-        return new UserLoginResponseDto()
-        {
-            Token = handlerToken.WriteToken(token),
-            User = userDataDto,
-            Message = "User logged succesfully!"
-        };
+        return handlerToken.WriteToken(token);
     }
 
     public async Task<(UserDataDto? User, List<string>? Errors)> Register(CreateUserDto createUserDto)
