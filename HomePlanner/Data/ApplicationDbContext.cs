@@ -18,12 +18,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasOne(t => t.CreatedBy)
             .WithMany()
             .HasForeignKey(t => t.CreatedById)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.NoAction);
 
         modelBuilder.Entity<Task>()
             .HasOne(t => t.AssignedTo)
             .WithMany()
             .HasForeignKey(t => t.AssignedToId)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Cascade);
     }
 

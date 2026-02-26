@@ -28,11 +28,11 @@ public class Task
     public DateTime? EndDate { get; set; }
 
     [ForeignKey("CreatedBy")]
-    public required string CreatedById { get; set; }
+    public string? CreatedById { get; set; }
 
-    public required ApplicationUser CreatedBy { get; set; }
+    public ApplicationUser? CreatedBy { get; set; }
 
     [ForeignKey("AssignedTo")]
-    public required string AssignedToId { get; set; }
-    public required ApplicationUser AssignedTo { get; set; }
+    public string? AssignedToId { get; set; }
+    public ApplicationUser? AssignedTo { get; set; }
 }

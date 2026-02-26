@@ -20,11 +20,11 @@ public class TaskDto
 
     public DateTime? EndDate { get; set; } = null;
 
-    public string CreatedById { get; set; } = string.Empty;
+    public string? CreatedById { get; set; }
 
-    public required UserDto CreatedBy { get; set; }
+    public UserDto? CreatedBy { get; set; }
 
-    public string AssignedToId { get; set; } = string.Empty;
+    public string? AssignedToId { get; set; }
     
-    public required UserDto AssignedTo { get; set; }
+    public UserDto? AssignedTo { get; set; }
 }

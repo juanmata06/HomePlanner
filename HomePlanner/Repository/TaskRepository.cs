@@ -18,9 +18,22 @@ public class TaskRepository : ITaskRepository
     public ICollection<Task> GetTasks(int pageNumber, int pageSize)
     {
         return _db.Tasks
-            .OrderBy(item => item.Id)
+            .OrderBy(item => item.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
+            .ToList();
+    }
+
+    public ICollection<Task> GetTasksByWeek(DateTime date)
+    {
+        // Calculate Sunday of the week
+        int daysToSunday = (int)date.DayOfWeek;
+        var sunday = date.AddDays(-daysToSunday).Date;
+        var saturday = sunday.AddDays(6); // Start of Saturday (to exclude it and keep up to Friday)
+        
+        return _db.Tasks
+            .Where(item => item.CreatedAt >= sunday && item.CreatedAt < saturday)
+            .OrderBy(item => item.CreatedAt)
             .ToList();
     }
 
@@ -34,7 +47,25 @@ public class TaskRepository : ITaskRepository
         _db.Tasks.Add(task);
         return Save();
     }
+    public bool UpdateTask(Task task)
+    {
+        if (task == null)
+        {
+            return false;
+        }
+        _db.Tasks.Update(task);
+        return Save();
+    }
 
+    public bool DeleteTask(Task task)
+    {
+        if (task == null)
+        {
+            return false;
+        }
+        _db.Tasks.Remove(task);
+        return Save();
+    }
     public Task? GetTaskById(int id)
     {
 

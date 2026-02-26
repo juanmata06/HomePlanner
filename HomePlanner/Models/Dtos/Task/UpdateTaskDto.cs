@@ -16,7 +16,7 @@ public class UpdateTaskDto
 
     public DateTime? EndDate { get; set; } = null;
 
-    public string CreatedById { get; set; } = string.Empty;
+    public DateTime? CreatedAt { get; set; }
 
-    public string AssignedToId { get; set; } = string.Empty;
+    public string? AssignedToId { get; set; }
 }

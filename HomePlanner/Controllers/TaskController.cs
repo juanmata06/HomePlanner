@@ -14,7 +14,7 @@ namespace HomePlanner.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     public class TaskController : ControllerBase
     {
         private readonly ITaskRepository _taskRepository;
@@ -29,7 +29,7 @@ namespace HomePlanner.Controllers
         }
 
         [AllowAnonymous]
-        [HttpGet]
+        [HttpGet("tasks")]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(List<TaskDto>), StatusCodes.Status200OK)]
         public IActionResult GetTasks([FromQuery] int page = 1, [FromQuery] int size = 5)
@@ -50,11 +50,17 @@ namespace HomePlanner.Controllers
             // Populate CreatedBy and AssignedTo for each task
             foreach (var taskDto in itemsDto)
             {
-                var createdByUser = _userRepository.GetUserById(taskDto.CreatedById);
-                var assignedToUser = _userRepository.GetUserById(taskDto.AssignedToId);
+                if (!string.IsNullOrWhiteSpace(taskDto.CreatedById))
+                {
+                    var createdByUser = _userRepository.GetUserById(taskDto.CreatedById);
+                    taskDto.CreatedBy = _mapper.Map<UserDto>(createdByUser);
+                }
                 
-                taskDto.CreatedBy = _mapper.Map<UserDto>(createdByUser);
-                taskDto.AssignedTo = _mapper.Map<UserDto>(assignedToUser);
+                if (!string.IsNullOrWhiteSpace(taskDto.AssignedToId))
+                {
+                    var assignedToUser = _userRepository.GetUserById(taskDto.AssignedToId);
+                    taskDto.AssignedTo = _mapper.Map<UserDto>(assignedToUser);
+                }
             }
             
             var response = new PaginationResponse<TaskDto>
@@ -68,6 +74,33 @@ namespace HomePlanner.Controllers
         }
 
         [AllowAnonymous]
+        [HttpGet("by-week")]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(List<TaskDto>), StatusCodes.Status200OK)]
+        public IActionResult GetTasksByWeek([FromQuery] DateTime date)
+        {
+            var items = _taskRepository.GetTasksByWeek(date);
+            var itemsDto = _mapper.Map<List<TaskDto>>(items);
+            
+            // Populate CreatedBy and AssignedTo for each task
+            foreach (var taskDto in itemsDto)
+            {
+                if (!string.IsNullOrWhiteSpace(taskDto.CreatedById))
+                {
+                    var createdByUser = _userRepository.GetUserById(taskDto.CreatedById);
+                    taskDto.CreatedBy = _mapper.Map<UserDto>(createdByUser);
+                }
+                
+                if (!string.IsNullOrWhiteSpace(taskDto.AssignedToId))
+                {
+                    var assignedToUser = _userRepository.GetUserById(taskDto.AssignedToId);
+                    taskDto.AssignedTo = _mapper.Map<UserDto>(assignedToUser);
+                }
+            }
+            
+            return Ok(itemsDto);
+        }
+
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -81,21 +114,31 @@ namespace HomePlanner.Controllers
                 return BadRequest(ModelState);
             }
 
-            var createdById = _userRepository.GetUserById(createTaskDto.CreatedById);
-            if (createdById == null)
+            var userId = User.FindFirst("id")?.Value;
+            if (string.IsNullOrWhiteSpace(userId))
             {
-                ModelState.AddModelError(Constants.CustomErrorKey, $"User {createTaskDto.CreatedById} doesn't exists.");
-                return BadRequest(ModelState);
+                return Unauthorized("User ID not found in token");
             }
 
-            var assignedToId = _userRepository.GetUserById(createTaskDto.AssignedToId);
-            if (assignedToId == null)
+            var createdByUser = _userRepository.GetUserById(userId);
+            if (createdByUser == null)
             {
-                ModelState.AddModelError(Constants.CustomErrorKey, $"User {createTaskDto.AssignedToId} doesn't exists.");
-                return BadRequest(ModelState);
+                return UnprocessableEntity($"User {userId} doesn't exist.");
+            }
+
+            // Validate AssignedToId only if provided
+            if (!string.IsNullOrWhiteSpace(createTaskDto.AssignedToId))
+            {
+                var assignedToUser = _userRepository.GetUserById(createTaskDto.AssignedToId);
+                if (assignedToUser == null)
+                {
+                    ModelState.AddModelError(Constants.CustomErrorKey, $"User {createTaskDto.AssignedToId} doesn't exists.");
+                    return BadRequest(ModelState);
+                }
             }
 
             var task = _mapper.Map<Task>(createTaskDto);
+            task.CreatedById = userId;
 
             if (!_taskRepository.CreateTask(task))
             {
@@ -105,7 +148,146 @@ namespace HomePlanner.Controllers
 
             var createdTask = _taskRepository.GetTaskById(task.Id);
             var taskDto = _mapper.Map<TaskDto>(createdTask);
+            
+            // Populate CreatedBy and AssignedTo if they exist
+            if (createdTask?.CreatedById != null)
+            {
+                var createdByData = _userRepository.GetUserById(createdTask.CreatedById);
+                taskDto.CreatedBy = _mapper.Map<UserDto>(createdByData);
+            }
+            
+            if (createdTask?.AssignedToId != null)
+            {
+                var assignedToData = _userRepository.GetUserById(createdTask.AssignedToId);
+                taskDto.AssignedTo = _mapper.Map<UserDto>(assignedToData);
+            }
+
             return CreatedAtRoute("GetTaskById", new { id = task.Id }, taskDto);
+        }
+
+        [HttpPut("{id:int}", Name = "UpdateTask")]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(TaskDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public IActionResult UpdateTask(int id, [FromBody] UpdateTaskDto updateTaskDto)
+        {
+            if (updateTaskDto == null || id <= 0)
+            {
+                return BadRequest("Task ID and data are required");
+            }
+
+            var task = _taskRepository.GetTaskById(id);
+            if (task == null)
+            {
+                return NotFound($"Task {id} not found");
+            }
+
+            var userId = User.FindFirst("id")?.Value;
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized("User ID not found in token");
+            }
+
+            var user = _userRepository.GetUserById(userId);
+            if (user == null)
+            {
+                return UnprocessableEntity($"User {userId} doesn't exist.");
+            }
+
+            if (task.CreatedById != userId)
+            {
+                return Forbid();
+            }
+
+            // Validate AssignedToId only if provided
+            if (!string.IsNullOrWhiteSpace(updateTaskDto.AssignedToId))
+            {
+                var assignedToUser = _userRepository.GetUserById(updateTaskDto.AssignedToId);
+                if (assignedToUser == null)
+                {
+                    ModelState.AddModelError(Constants.CustomErrorKey, $"User {updateTaskDto.AssignedToId} doesn't exists.");
+                    return BadRequest(ModelState);
+                }
+            }
+
+            _mapper.Map(updateTaskDto, task);
+            // Don't update CreatedById - it should remain as is
+            // Allow updating CreatedAt if provided
+            if (updateTaskDto.CreatedAt.HasValue)
+            {
+                task.CreatedAt = updateTaskDto.CreatedAt.Value;
+            }
+
+            if (!_taskRepository.UpdateTask(task))
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error updating task");
+            }
+
+            var updatedTask = _taskRepository.GetTaskById(id);
+            var taskDto = _mapper.Map<TaskDto>(updatedTask);
+            
+            // Populate CreatedBy and AssignedTo if they exist
+            if (updatedTask?.CreatedById != null)
+            {
+                var createdByData = _userRepository.GetUserById(updatedTask.CreatedById);
+                taskDto.CreatedBy = _mapper.Map<UserDto>(createdByData);
+            }
+            
+            if (updatedTask?.AssignedToId != null)
+            {
+                var assignedToData = _userRepository.GetUserById(updatedTask.AssignedToId);
+                taskDto.AssignedTo = _mapper.Map<UserDto>(assignedToData);
+            }
+
+            return Ok(taskDto);
+        }
+
+        [HttpDelete("{id:int}", Name = "DeleteTask")]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public IActionResult DeleteTask(int id)
+        {
+            if (id <= 0)
+            {
+                return BadRequest("Task ID is required");
+            }
+
+            var task = _taskRepository.GetTaskById(id);
+            if (task == null)
+            {
+                return NotFound($"Task {id} not found");
+            }
+
+            var userId = User.FindFirst("id")?.Value;
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Unauthorized("User ID not found in token");
+            }
+
+            var user = _userRepository.GetUserById(userId);
+            if (user == null)
+            {
+                return UnprocessableEntity($"User {userId} doesn't exist.");
+            }
+
+            if (task.CreatedById != userId)
+            {
+                return Forbid();
+            }
+
+            if (!_taskRepository.DeleteTask(task))
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "Error deleting task");
+            }
+
+            return NoContent();
         }
 
         [AllowAnonymous]
@@ -124,12 +306,18 @@ namespace HomePlanner.Controllers
             }
             var itemDto = _mapper.Map<TaskDto>(item);
             
-            // Populate CreatedBy and AssignedTo
-            var createdByUser = _userRepository.GetUserById(itemDto.CreatedById);
-            var assignedToUser = _userRepository.GetUserById(itemDto.AssignedToId);
+            // Populate CreatedBy and AssignedTo if they exist
+            if (item.CreatedById != null)
+            {
+                var createdByUser = _userRepository.GetUserById(item.CreatedById);
+                itemDto.CreatedBy = _mapper.Map<UserDto>(createdByUser);
+            }
             
-            itemDto.CreatedBy = _mapper.Map<UserDto>(createdByUser);
-            itemDto.AssignedTo = _mapper.Map<UserDto>(assignedToUser);
+            if (item.AssignedToId != null)
+            {
+                var assignedToUser = _userRepository.GetUserById(item.AssignedToId);
+                itemDto.AssignedTo = _mapper.Map<UserDto>(assignedToUser);
+            }
             
             return Ok(itemDto);
         }
