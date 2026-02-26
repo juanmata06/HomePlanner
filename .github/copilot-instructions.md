@@ -24,7 +24,7 @@ HomePlanner is a household task management API built with ASP.NET Core 9.0. The 
 
 ```
 HomePlanner/
-├── Controllers/           # API Controllers (UsersController, TaskController)
+├── Controllers/           # API Controllers (AuthController, UsersController, TaskController)
 │   └── Constants/         # Controller constants (CustomErrorKey, DefaultImage)
 ├── Data/                  # ApplicationDbContext (IdentityDbContext<ApplicationUser>)
 ├── Migrations/            # EF Core migrations
@@ -32,7 +32,7 @@ HomePlanner/
 │   ├── Dtos/              # Data Transfer Objects organized by entity
 │   │   ├── ApplicationUser/   # UserDataDto
 │   │   ├── Task/              # TaskDto, CreateTaskDto, UpdateTaskDto
-│   │   └── User/              # UserDto, CreateUserDto, UserLoginDto, etc.
+│   │   └── User/              # UserDto, UserGetDto, CreateUserDto, UserLoginDto, UserRegisterDto, UserRegisterResponseDto, UserLoginResponseDto
 │   └── Responses/         # API response models (PaginationResponse)
 ├── Repository/            # Repository pattern implementations
 │   └── IRepository/       # Repository interfaces
@@ -69,9 +69,9 @@ Access Swagger UI at: `https://localhost:<port>/swagger`
 - **Naming**: Use singular names (e.g., `Task`, `User`)
 - **Properties**: Use `string.Empty` for non-nullable string defaults
 - **Nullable**: Use `?` for optional properties (`public string? Description { get; set; }`)
-- **Required Properties**: Use `required` modifier for mandatory relationships (e.g., `public required ApplicationUser CreatedBy { get; set; }`)
 - **DTOs Structure**: Organized by entity (ApplicationUser/, Task/, User/)
-- **Task Model**: Includes Id, Title (required), optional Description, Status (TaskStatus enum), StartDate, EndDate, LastCompletedDate, CreatedAt, and relationships to ApplicationUser (CreatedBy, AssignedTo)
+- **Task Model**: Includes Id, Title, optional Description, Status (TaskStatus enum), StartDate, EndDate, LastCompletedDate, CreatedAt, and optional relationships to ApplicationUser (CreatedBy, AssignedTo). Foreign keys `CreatedById` and `AssignedToId` are nullable.
+- **ApplicationUser Model**: Extends IdentityUser with optional Name, ImgUrl, and ImgUrlLocal properties for profile images
 
 ### TaskStatus Enum
 Tasks have three states defined in the `TaskStatus` enum:
@@ -81,26 +81,46 @@ Tasks have three states defined in the `TaskStatus` enum:
 
 ### Authentication & Identity
 - **Identity Framework**: ASP.NET Core Identity integrated with ApplicationUser model
-- **ApplicationUser**: Extends IdentityUser, adds optional Name property
+- **ApplicationUser**: Extends IdentityUser, adds optional Name, ImgUrl, and ImgUrlLocal properties
 - **JWT Configuration**: Located in appsettings.json under `ApiSettings`
 - **Issuer and Audience**: `http://localhost:5089`
-- **Authorization**: Role-based with `[Authorize(Roles = "Admin")]` attribute
-- **User DTOs**: CreateUserDto, UserDto, UserLoginDto, UserLoginResponseDto, UserDataDto
+- **Authorization**: Controller-level `[Authorize]` with `[AllowAnonymous]` for public endpoints
+- **User DTOs**: 
+  - `CreateUserDto` - For creating users (requires Name, Email, Password, Role)
+  - `UserDto` - Basic user info (Id, Name, Email)
+  - `UserGetDto` - Extended user info with image fields (Id, Name, Email, ImgUrl, ImgUrlLocal)
+  - `UserDataDto` - Full user data including Role and image fields
+  - `UserLoginDto`, `UserLoginResponseDto` - For authentication
+  - `UserRegisterDto`, `UserRegisterResponseDto` - For registration
 
 ### Repository Pattern
 - **Interfaces**: Defined in `Repository/IRepository/` (IUserRepository, ITaskRepository)
 - **Implementations**: Concrete repositories in `Repository/` (UserRepository, TaskRepository)
-- **User Operations**: GetUsers, GetUserById, UserExistsByEmail, Login, Register, SaveAsync
-- **Task Operations**: GetTasks (paginated), GetTaskById, GetTotalTasks, CreateTask, Save
+- **User Operations**: GetUsers, GetUserById, UserExistsByEmail, Login, Register, GenerateTokenAsync, UpdateUser, DeleteUser, SaveAsync
+- **Task Operations**: GetTasks (paginated), GetTasksByWeek, GetTaskById, GetTotalTasks, CreateTask, UpdateTask, DeleteTask, Save
 
 ### Mapping Configuration
 - **AutoMapper**: Profiles in `Mapping/` folder
-- **UserProfile**: Maps User ↔ DTOs and ApplicationUser ↔ UserDto/UserDataDto
+- **UserProfile**: Maps ApplicationUser ↔ UserDataDto/UserDto/UserGetDto/UserRegisterResponseDto, CreateUserDto → ApplicationUser
 - **TaskProfile**: Maps Task ↔ TaskDto/CreateTaskDto/UpdateTaskDto
 
 ### Controllers
-- **UsersController**: User management with Register/Login endpoints (anonymous) and CRUD operations (Admin only)
-- **TaskController**: Task management with pagination, requires Admin role (GetTasks allows anonymous)
+- **AuthController**: Authentication endpoints (public by default)
+  - `POST /api/auth/register` - User registration
+  - `POST /api/auth/login` - User login, returns JWT token
+  - `GET /api/auth/profile` - Get current user profile (requires auth), refreshes token
+- **UsersController**: User management (Admin role required)
+  - `GET /api/users` - List all users
+  - `GET /api/users/{id}` - Get user by ID
+  - `PUT /api/users/{id}` - Update user
+  - `DELETE /api/users/{id}` - Delete user
+- **TaskController**: Task management (requires auth, some endpoints allow anonymous)
+  - `GET /api/task/tasks` - Paginated task listing (anonymous)
+  - `GET /api/task/by-week` - Get tasks for a specific week (anonymous)
+  - `GET /api/task/{id}` - Get task by ID (anonymous)
+  - `POST /api/task` - Create task (auth required)
+  - `PUT /api/task/{id}` - Update task (auth required, only creator can update)
+  - `DELETE /api/task/{id}` - Delete task (auth required, only creator can delete)
 - **Constants**: Controller-specific constants in `Controllers/Constants/` (CustomErrorKey, DefaultImage)
 - **Response Caching**: Uses CacheProfiles (Default10, Default20) defined in `Shared/Constants/`
 
@@ -122,6 +142,8 @@ dotnet ef database update --project HomePlanner
 - CreateTableUser
 - AddIdentitySupport (with corrections)
 - UpdateTaskWithCorrectForeignKeys
+- AddImageFieldsToApplicationUser
+- MakeTaskFieldsOptional
 
 ## Database Configuration
 - **DbContext**: `ApplicationDbContext` extends `IdentityDbContext<ApplicationUser>`
@@ -139,10 +161,13 @@ dotnet ef database update --project HomePlanner
 - ASP.NET Core Identity integrated with ApplicationUser
 - User repository pattern with IUserRepository and UserRepository
 - Task repository pattern with ITaskRepository and TaskRepository
-- UsersController with Register, Login, and CRUD operations
-- TaskController with paginated task listing and task creation
+- AuthController for authentication (register, login, profile)
+- UsersController with CRUD operations (Admin role required)
+- TaskController with full CRUD, pagination, and week-based filtering
 - AutoMapper configuration for User and Task entities
-- JWT Bearer Token authentication
-- Role-based authorization (Admin role)
+- JWT Bearer Token authentication with token refresh on profile endpoint
+- Role-based authorization (Admin role for user management)
+- Task ownership validation (only creator can update/delete)
 - Response caching with configurable profiles
 - Swagger/OpenAPI documentation with JWT support
+- User profile images support (ImgUrl, ImgUrlLocal fields)
