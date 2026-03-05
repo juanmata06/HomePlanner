@@ -4,17 +4,17 @@ namespace HomePlanner.Models.Dtos.Task;
 
 public class UpdateTaskDto
 {
-    public string Title { get; set; } = string.Empty;
+    public string? Title { get; set; }
 
     public string? Description { get; set; }
 
-    public TaskStatus Status { get; set; } = TaskStatus.Todo;
+    public TaskStatus? Status { get; set; }
 
     public DateTime? LastCompletedDate { get; set; }
 
-    public DateTime? StartDate { get; set; } = null;
+    public DateTime? StartDate { get; set; }
 
-    public DateTime? EndDate { get; set; } = null;
+    public DateTime? EndDate { get; set; }
 
     public DateTime? CreatedAt { get; set; }
 

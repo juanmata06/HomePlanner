@@ -26,6 +26,18 @@ builder.Services.AddRouting(options => options.LowercaseUrls = true); // This di
 //* AutoMapper *//
 builder.Services.AddAutoMapper(typeof(Program).Assembly);
 
+//* CORS configuration *//
+builder.Services.AddCors(options =>
+{
+  options.AddPolicy("AllowAngular", policy =>
+  {
+    policy.WithOrigins("http://localhost:4200")
+      .AllowAnyMethod()
+      .AllowAnyHeader()
+      .AllowCredentials();
+  });
+});
+
 //* Cache configs *//
 // Weigth:
 builder.Services.AddResponseCaching(options =>
@@ -120,6 +132,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("AllowAngular");
 
 app.UseAuthentication();
 

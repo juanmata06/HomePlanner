@@ -213,12 +213,45 @@ namespace HomePlanner.Controllers
                 }
             }
 
-            _mapper.Map(updateTaskDto, task);
-            // Don't update CreatedById - it should remain as is
-            // Allow updating CreatedAt if provided
+            // Update only the fields that were provided (not null)
+            if (!string.IsNullOrWhiteSpace(updateTaskDto.Title))
+            {
+                task.Title = updateTaskDto.Title;
+            }
+
+            if (updateTaskDto.Description != null)
+            {
+                task.Description = updateTaskDto.Description;
+            }
+
+            if (updateTaskDto.Status.HasValue)
+            {
+                task.Status = updateTaskDto.Status.Value;
+            }
+
+            if (updateTaskDto.LastCompletedDate.HasValue)
+            {
+                task.LastCompletedDate = updateTaskDto.LastCompletedDate.Value;
+            }
+
+            if (updateTaskDto.StartDate.HasValue)
+            {
+                task.StartDate = updateTaskDto.StartDate.Value;
+            }
+
+            if (updateTaskDto.EndDate.HasValue)
+            {
+                task.EndDate = updateTaskDto.EndDate.Value;
+            }
+
             if (updateTaskDto.CreatedAt.HasValue)
             {
                 task.CreatedAt = updateTaskDto.CreatedAt.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(updateTaskDto.AssignedToId))
+            {
+                task.AssignedToId = updateTaskDto.AssignedToId;
             }
 
             if (!_taskRepository.UpdateTask(task))

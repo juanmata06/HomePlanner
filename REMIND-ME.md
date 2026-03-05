@@ -1,6 +1,7 @@
 # Tareas a Realizar - HomePlanner
 
 ## General
+- ✅ crear postman 
 - probar a conectar con angular
 
 ## Auth

@@ -41,6 +41,7 @@ namespace HomePlanner.Controllers
                 ModelState.AddModelError(Constants.CustomErrorKey, $"User {createUserDto.Email} already exists.");
                 return BadRequest(ModelState);
             }
+            createUserDto.Role = "User"; // Comment this line for create Admin users
             var (user, errors) = await _userRepository.Register(createUserDto);
             if (errors != null && errors.Count > 0)
             {
